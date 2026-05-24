@@ -44,4 +44,7 @@ public:
 	// Stores the pivot arrow that the mesh rotates around
 	UPROPERTY(EditAnywhere)
 	UArrowComponent* PivotArrow;
+
+	UPROPERTY(EditAnywhere)
+	FRotator CurrentRotation = FRotator(0,0,0);
 };
