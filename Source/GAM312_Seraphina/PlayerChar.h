@@ -36,6 +36,7 @@ smartly, instead of just getting stuck on boxes while running in a straight line
 */
 #pragma once
 
+#include "Engine/Engine.h"
 #include "CoreMinimal.h"
 #include "Camera/CameraComponent.h"
 #include "Resource_M.h"
@@ -188,6 +189,10 @@ public:
 	// Boolean to track if the player is in the middle of placing a building part or not
 	UPROPERTY()
 	bool IsBuilding;
+
+	// Boolean to track if the current object can be legally placed or not
+	UPROPERTY()
+	bool canPlaceObject;
 
 	// Stores the player part inventory in key-value array using an enum for the part type
 	// as the key, and an integer as the value ie how many of that part the player has
