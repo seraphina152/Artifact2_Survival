@@ -73,7 +73,7 @@ void APlayerChar::Tick(float DeltaTime)
 		if (spawnedPart)
 		{
 			// Start off assuming we can't place the object
-			canPlaceObject = false;
+			CanPlaceObject = false;
 
 			// Set the parts location based on where the player is looking
 			FVector StartLocation = PlayerCamComp->GetComponentLocation();
@@ -109,7 +109,7 @@ void APlayerChar::Tick(float DeltaTime)
 					{
 						spawnedPart->SetActorLocation(HitResult.Location);
 						spawnedPart->SetActorRotation(GetActorRotation() + spawnedPart->CurrentRotation);
-						canPlaceObject = true;
+						CanPlaceObject = true;
 					}
 
 				}
@@ -122,20 +122,17 @@ void APlayerChar::Tick(float DeltaTime)
 					{
 
 						FVector hitNormal = HitResult.ImpactNormal;
-
-						FString str = FString::Printf(TEXT("hitnormal: %s | vectorup: %s"), *hitNormal.ToString(), *FVector::UpVector.ToString());
-						if (GEngine) GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Red, str);
+			
 						// If the hit normal is up, then we are pointing at the top of a floor piece
 						if (hitNormal.Z > 0.9f && HitPart->buildingPartType == EBuildingPartEnum::Floor)
 						{
-							if (GEngine) GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Red, TEXT("Hitnormal is equal to UpVector"));
-							// If we are currently placing a floor or ceiling piece then we snap it to the floor piece
-							if (spawnedPart->buildingPartType == EBuildingPartEnum::Ceiling ||
-								spawnedPart->buildingPartType == EBuildingPartEnum::Wall)
-							{
-								spawnedPart->SetActorLocationAndRotation(HitPart->GetActorLocation(), HitPart->GetActorRotation() + spawnedPart->CurrentRotation);
-								canPlaceObject = true;
-							}
+							// Since we are snapping to the top of a floor piece, we need to know what the Z
+							// value is. This way we can change the size of the floor piece and have it still
+							// snap properly without having to change anything in the code
+							FVector spawnLocation = HitPart->GetActorLocation();
+							spawnLocation.Z = HitResult.Location.Z;
+							spawnedPart->SetActorLocationAndRotation(spawnLocation, HitPart->GetActorRotation() + spawnedPart->CurrentRotation);
+							CanPlaceObject = true;
 						}
 						// If the hit normal is not up, then we can assume we are aiming at the side of something
 						else
@@ -149,7 +146,7 @@ void APlayerChar::Tick(float DeltaTime)
 									spawnedPart->SetActorRotation(HitPart->GetActorRotation() + spawnedPart->CurrentRotation);
 
 									spawnedPart->SetActorLocation(HitPart->GetActorLocation() + (hitNormal * BuildingGridSize));
-									canPlaceObject = true;
+									CanPlaceObject = true;
 								}
 							}
 
@@ -159,102 +156,16 @@ void APlayerChar::Tick(float DeltaTime)
 								if (spawnedPart->buildingPartType == EBuildingPartEnum::Ceiling)
 								{
 									spawnedPart->SetActorLocationAndRotation(HitPart->GetActorLocation(), HitPart->GetActorRotation() + spawnedPart->CurrentRotation);
-									canPlaceObject = true;
+									CanPlaceObject = true;
 								}
 							}
 						}
 					}
 				}
-				
-
-			}
-			/*
-			// Set the parts location based on where the player is looking
-			FVector StartLocation = PlayerCamComp->GetComponentLocation();
-			FVector Direction = PlayerCamComp->GetForwardVector() * BuildDistance;
-			FVector EndLocation = StartLocation + Direction;
-			
-			// Snaps the end location X and Y coordinates to our grid
-			EndLocation.X = (int)(EndLocation.X / BuildingGridSize) * BuildingGridSize;
-			EndLocation.Y = (int)(EndLocation.Y / BuildingGridSize) * BuildingGridSize;
-
-			FVector DownLocation = EndLocation;
-
-			DrawDebugLine(GetWorld(), StartLocation, EndLocation, FColor::Red, false, 0.1f);
-
-			FHitResult HitResult;
-			FCollisionQueryParams QueryParams;
-			QueryParams.AddIgnoredActor(spawnedPart);
-			QueryParams.bTraceComplex = true;
-			QueryParams.bReturnFaceIndex = true;
-			
-			// Performs a line trace based on the above settings
-			DrawDebugLine(GetWorld(), StartLocation, EndLocation, FColor::Red, false, 0.1f);
-
-			// If the line trace from straight out of the camera hits an object, use that location as out Z value
-			// This keeps things snapped either to the ground or a building piece
-			if (GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility, QueryParams))
-			{
-				EndLocation.Z = HitResult.ImpactPoint.Z;
-			}
-			else
-			{
-				// If the trace ended at an empty location, then we do a second trace straight down from that spot
-				// We only check one grid cell distance at the moment. If we hit an object then we again set
-				// the Z value of our end location to that spot
-				DownLocation.Z -= BuildingGridSize;
-				DrawDebugLine(GetWorld(), EndLocation, DownLocation, FColor::Red, false, 0.1f);
-				if (GetWorld()->LineTraceSingleByChannel(HitResult, EndLocation, DownLocation, ECC_Visibility, QueryParams))
-				{
-					EndLocation.Z = HitResult.ImpactPoint.Z;
-				}
 			}
 
-			// Figuring out where to place the object is different if the player is placing a floor
-			// Floors need to snap to adjacent floors instead of just snapping straight down
-			// So this code checks adjacent grid locations and snaps the Z value of the floor to
-			// match any floors it finds
-			if (spawnedPart->buildingPartType == EBuildingPartEnum::Floor)
-			{
-				// Array that stores the four locations to check for floors
-				TArray<FVector> GridLocations;
-				GridLocations.Add(FVector(EndLocation.X - BuildingGridSize, EndLocation.Y, EndLocation.Z + (BuildingGridSize)));
-				GridLocations.Add(FVector(EndLocation.X + BuildingGridSize, EndLocation.Y, EndLocation.Z + (BuildingGridSize)));
-				GridLocations.Add(FVector(EndLocation.X, EndLocation.Y - BuildingGridSize, EndLocation.Z + (BuildingGridSize)));
-				GridLocations.Add(FVector(EndLocation.X, EndLocation.Y + BuildingGridSize, EndLocation.Z + (BuildingGridSize)));
-
-				// Loop through each grid location to check for floors
-				for (const FVector& loc : GridLocations)
-				{
-					// Sets the end of the line trace to be straight down by one cell
-					DownLocation = loc;
-					DownLocation.Z -= BuildingGridSize * 2;
-
-					// Does a line trace from where the player is looking straight down
-					if (GetWorld()->LineTraceSingleByChannel(HitResult, loc, DownLocation, ECC_Visibility, QueryParams))
-					{
-						DrawDebugLine(GetWorld(), loc, DownLocation, FColor::Red, false, 0.1f);
-						
-						// Tries to cast the object we hit to a building part
-						ABuildingPart* HitPart = Cast<ABuildingPart>(HitResult.GetActor());
-						
-						// If we hit a building part then we check if it's a floor
-						if (HitPart)
-						{
-							if (HitPart->buildingPartType == EBuildingPartEnum::Floor)
-							{
-								// Sets the spawned parts Z value to match that of the floor we found
-								EndLocation.Z = HitPart->GetActorLocation().Z;
-							}
-						}
-					}
-
-				}
-			}
-
-			// Set the spawned parts location to our new snapped location
-			spawnedPart->SetActorLocation(EndLocation);
-		*/
+			// Updates the building material color based on whether the part can be placed or not
+			spawnedPart->UpdateBuildingMaterialColor(CanPlaceObject);
 		}
 	}
 }
@@ -419,9 +330,13 @@ void APlayerChar::SpawnBuilding(EBuildingPartEnum buildingObject, bool& isSucces
 			FVector EndLocation = StartLocation + Direction;
 			FRotator myRot(0, 0, 0);
 
-			// Spawns the building part into the world
+			// Spawns the building part into the world and sets the material
 			spawnedPart = GetWorld()->SpawnActor<ABuildingPart>(BuildPartClass, EndLocation, myRot, SpawnParams);
-			
+			spawnedPart->ApplyBuildingMaterial();
+			CanPlaceObject = false;
+			spawnedPart->UpdateBuildingMaterialColor(CanPlaceObject);
+
+			// Updates the helper text to show the controls for placing building parts
 			playerHUD->SetHelperText("LMB: Place object. RMB: Cancel Placement. Scroll Wheel: Adjust distance. E: Rotate object.");
 
 			// isSuccess was based by reference so setting it to true here acts like a return command
@@ -628,13 +543,13 @@ void APlayerChar::FindObject()
 						// Reduces the resources total amount remaining
 						HitResource->totalResources = std::max(0, HitResource->totalResources - resourceValue);
 
-						// Creates a debug message and displays it so we know this is all working
-						FString debugtxt = "Gained " + FString::FromInt(giveAmount) + TEXT(" ") + hitName +
+						// Creates a message and displays it so the player knows they recieved something
+						FString txt = "Gained " + FString::FromInt(giveAmount) + TEXT(" ") + hitName +
 							TEXT(". ") + FString::FromInt(HitResource->totalResources) +
 							TEXT(" remaining.");
 
 						// Sends a message to the message log on the player HUD
-						playerHUD->AddMessageToLog(debugtxt);
+						playerHUD->AddMessageToLog(txt);
 
 						// Spawns a red decal to signal that the player successfully hit a resource
 						UGameplayStatics::SpawnDecalAtLocation(GetWorld(), hitDecal, FVector(10.0f, 10.0f, 10.0f),
@@ -649,14 +564,10 @@ void APlayerChar::FindObject()
 					{
 						HitResource->Destroy();
 
-						// Creates a debug message and displays it so we know this is all working
-						FString debugtxt = hitName + TEXT(" resource depleted.");
-						/*
-						check(GEngine != nullptr);
-						GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, debugtxt);
-						*/
+						// Creates a message that the resource is out and displays it
+						FString txt = hitName + TEXT(" resource depleted.");
 						// Sends a message to the message log on the player HUD
-						playerHUD->AddMessageToLog(debugtxt);
+						playerHUD->AddMessageToLog(txt);
 					}
 				}
 			}
@@ -667,7 +578,7 @@ void APlayerChar::FindObject()
 	else
 	{
 		// Only place the object if the location is valid
-		if (canPlaceObject)
+		if (CanPlaceObject)
 		{
 			IsBuilding = false;
 			// Removes the item from the players inventory
@@ -676,16 +587,18 @@ void APlayerChar::FindObject()
 			// Increases the build objective by one
 			objectiveWidget->AddBuilds(1);
 
+			// Sets the material of the part back to normal
+			spawnedPart->ApplyBaseMaterial();
+
 			// Checks if the player has anymore parts left of the current type
+			// If they do then we spawn in another part, if they dont then we clear the helper text
 			if (BuildingInventoryArray[spawnedPart->buildingPartType] > 0)
 			{
-				// If they do, we spawn in another part
 				bool isSuccess = false;
 				SpawnBuilding(spawnedPart->buildingPartType, isSuccess);
 			}
 			else
 			{
-				// If they dont, we clear the helper text
 				playerHUD->SetHelperText("");
 			}
 		}

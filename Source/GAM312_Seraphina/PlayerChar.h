@@ -192,7 +192,7 @@ public:
 
 	// Boolean to track if the current object can be legally placed or not
 	UPROPERTY()
-	bool canPlaceObject;
+	bool CanPlaceObject;
 
 	// Stores the player part inventory in key-value array using an enum for the part type
 	// as the key, and an integer as the value ie how many of that part the player has
