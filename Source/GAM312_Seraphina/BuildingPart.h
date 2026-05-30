@@ -41,6 +41,38 @@ public:
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* Mesh;
 
+	// Stores the normal material used for the building part
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials")
+	UMaterialInterface* BaseMaterial;
+
+	// Stores the material that is used when placing the part. This will be either
+	// red or green depending on if it can be placed or not
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials")
+	UMaterialInterface* BuildingMaterial;
+
+	// Dynamic material instance used to change the color of the material 
+	UPROPERTY()
+	UMaterialInstanceDynamic* DynamicBuildingMaterial;
+
+	// Colors are stored here just to be easier to change if needed
+	UPROPERTY()
+	FLinearColor CanPlaceColor = FLinearColor(0, 1, 0, 1);
+
+	UPROPERTY()
+	FLinearColor CanNotPlaceColor = FLinearColor(1, 0, 0, 1);
+
+	// Changes the meshes current material to the base material
+	UFUNCTION(BlueprintCallable, Category = "Materials")
+	void ApplyBaseMaterial();
+
+	// Changes the meshes current material to the dynamic building material
+	UFUNCTION(BlueprintCallable, Category = "Materials")
+	void ApplyBuildingMaterial();
+
+	// Updates the materials color based on whether the part can be placed or not
+	UFUNCTION(BlueprintCallable, Category = "Materials")
+	void UpdateBuildingMaterialColor(bool canPlace);
+
 	// Stores the pivot arrow that the mesh rotates around
 	UPROPERTY(EditAnywhere)
 	UArrowComponent* PivotArrow;
