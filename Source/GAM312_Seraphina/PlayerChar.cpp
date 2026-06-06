@@ -2,6 +2,7 @@
 
 
 #include "PlayerChar.h"
+#include "Components/PrimitiveComponent.h"
 #include <algorithm>
 
 // Sets default values
@@ -162,6 +163,12 @@ void APlayerChar::Tick(float DeltaTime)
 						}
 					}
 				}
+			}
+
+			// Checks if the player is overlapping the building part, that way they cant spawn it in on top of themselves
+			if (this->GetMesh()->Bounds.GetBox().Intersect(spawnedPart->Mesh->Bounds.GetBox())) 
+			{
+				CanPlaceObject = false;
 			}
 
 			// Updates the building material color based on whether the part can be placed or not
@@ -331,13 +338,15 @@ void APlayerChar::SpawnBuilding(EBuildingPartEnum buildingObject, bool& isSucces
 			FRotator myRot(0, 0, 0);
 
 			// Spawns the building part into the world and sets the material
+			// Also disables collision while the player is placing it to avoid yeeting them off the map
 			spawnedPart = GetWorld()->SpawnActor<ABuildingPart>(BuildPartClass, EndLocation, myRot, SpawnParams);
+			spawnedPart->Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			spawnedPart->ApplyBuildingMaterial();
 			CanPlaceObject = false;
 			spawnedPart->UpdateBuildingMaterialColor(CanPlaceObject);
 
 			// Updates the helper text to show the controls for placing building parts
-			playerHUD->SetHelperText("LMB: Place object. RMB: Cancel Placement. Scroll Wheel: Adjust distance. E: Rotate object.");
+			playerHUD->SetHelperText("LMB: Place object. RMB: Cancel Placement. Scroll Wheel: Adjust distance. E: Rotate object.\nFloors required for other building parts.");
 
 			// isSuccess was based by reference so setting it to true here acts like a return command
 			isSuccess = true;
@@ -589,6 +598,9 @@ void APlayerChar::FindObject()
 
 			// Sets the material of the part back to normal
 			spawnedPart->ApplyBaseMaterial();
+
+			// Re-enables collision for the building parts
+			spawnedPart->Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
 			// Checks if the player has anymore parts left of the current type
 			// If they do then we spawn in another part, if they dont then we clear the helper text
